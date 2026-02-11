@@ -1,0 +1,14 @@
+[Unit]
+Description=Binance Bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/path/to/bot
+ExecStart=/path/to/venv/bin/python main.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
