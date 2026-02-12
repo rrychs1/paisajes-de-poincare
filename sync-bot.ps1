@@ -25,6 +25,14 @@ if ($LASTEXITCODE -ge 8) {
     throw "Robocopy failed with exit code $LASTEXITCODE"
 }
 
+# Ensure excluded files are not present in repo
+foreach ($name in $excludeFiles) {
+    $path = Join-Path $Repo $name
+    if (Test-Path $path) {
+        Remove-Item -Force $path
+    }
+}
+
 Push-Location $Repo
 try {
     git add -A
