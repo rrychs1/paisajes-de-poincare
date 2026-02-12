@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 import time
 import urllib.request
 from typing import Any, Optional
@@ -67,3 +68,23 @@ class AlertManager:
         )
         with urllib.request.urlopen(request, timeout=10) as response:
             response.read()
+
+
+def send_discord_test_message(message: str = "Test message from bot") -> None:
+    webhook_url = os.getenv("DISCORD_WEBHOOK_URL")
+    if not webhook_url:
+        raise RuntimeError("DISCORD_WEBHOOK_URL is not set")
+
+    payload = {"content": message[:2000]}
+    data = json.dumps(payload).encode("utf-8")
+    request = urllib.request.Request(
+        webhook_url,
+        data=data,
+        headers={
+            "Content-Type": "application/json",
+            "User-Agent": "Mozilla/5.0",
+        },
+        method="POST",
+    )
+    with urllib.request.urlopen(request, timeout=10) as response:
+        response.read()

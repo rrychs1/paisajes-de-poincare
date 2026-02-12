@@ -82,19 +82,17 @@ def _format_trade_loss_message(
     pnl_pct_str = _format_pct(pnl_pct, 0) if pnl_pct is not None else "N/A"
     daily_pct_str = _format_pct(daily_pct, 0) if daily_pct is not None else "N/A"
     return (
-        "⚠️ Trade Closed: Loss\n"
+        ":warning: Trade Closed: Loss\n"
         f"PnL: {_format_money(pnl, currency, 0)} ({pnl_pct_str})\n"
         f"Daily PnL: {_format_money(daily_pnl, currency, 0)} ({daily_pct_str})"
     )
 
-
 def _format_trade_win_message(pnl: float, currency: str, symbol: str) -> str:
     symbol_name = symbol.replace("/", "")
     return (
-        f"ℹ️ Position Closed: {symbol_name}\n"
+        f":information_source: Position Closed: {symbol_name}\n"
         f"PnL: +{_format_money(pnl, currency, 0)}"
     )
-
 
 def _format_kill_switch_message(
     daily_pnl: float, equity: float | None, max_daily_loss_pct: float, currency: str
@@ -103,12 +101,11 @@ def _format_kill_switch_message(
     daily_pct_str = _format_pct(daily_pct, 0) if daily_pct is not None else "N/A"
     limit_pct = max_daily_loss_pct * 100.0
     return (
-        "🚨 KILL SWITCH ACTIVATED\n"
+        ":rotating_light: KILL SWITCH ACTIVATED\n"
         f"Daily Loss: {_format_money(daily_pnl, currency, 0)} ({daily_pct_str})\n"
         f"Limit: -{limit_pct:.0f}%\n"
         "Trading halted until daily reset (00:00 UTC)"
     )
-
 
 def _format_regime_summary(
     symbol: str, df, regime: MarketRegime, detector: RegimeDetector
@@ -159,19 +156,18 @@ def _format_regime_change_message(symbol: str, old_value: str, new_value: str, a
     symbol_name = symbol.replace("/", "")
     adx_str = f"{adx:.2f}" if adx is not None else "N/A"
     return (
-        f"⚠️ Regime Change: {symbol_name}\n"
-        f"{old_value} → {new_value} (ADX: {adx_str})"
+        f":warning: Regime Change: {symbol_name}\n"
+        f"{old_value} -> {new_value} (ADX: {adx_str})"
     )
 
-
 def _format_grid_to_trend_transition(result: dict[str, Any]) -> str:
-    lines = ["🔧 Transition Protocol: GRID→TREND", "Step 1: Cancelling all Grid orders..."]
+    lines = [":wrench: Transition Protocol: GRID->TREND", "Step 1: Cancelling all Grid orders..."]
     canceled = result.get("canceled_orders") or []
     if canceled:
         for order_id in canceled:
-            lines.append(f"  ✅ Cancelled order #{order_id}")
+            lines.append(f"  :white_check_mark: Cancelled order #{order_id}")
     else:
-        lines.append("  ℹ️ No grid orders to cancel")
+        lines.append("  :information_source: No grid orders to cancel")
 
     lines.append("Step 2: Checking residual positions...")
     position = result.get("position") or {}
@@ -181,9 +177,9 @@ def _format_grid_to_trend_transition(result: dict[str, Any]) -> str:
         entry_price = position.get("entry_price") or position.get("mark_price")
     if size is not None and abs(size) > 0:
         price_str = f"${entry_price:,.0f}" if entry_price else "N/A"
-        lines.append(f"  ⚠️ Found open position: {abs(size):.6f} BTC @ {price_str}")
+        lines.append(f"  :warning: Found open position: {abs(size):.6f} BTC @ {price_str}")
     else:
-        lines.append("  ✅ No open position")
+        lines.append("  :white_check_mark: No open position")
 
     lines.append("Step 3: Placing emergency trailing stop...")
     trailing = result.get("trailing") or {}
@@ -192,31 +188,43 @@ def _format_grid_to_trend_transition(result: dict[str, Any]) -> str:
         if distance is not None:
             if trailing.get("atr_source") == "atr":
                 mult = trailing.get("atr_multiplier", 0.0)
-                lines.append(f"  ✅ Trailing stop placed: {mult:.1f} ATR = ${distance:,.0f}")
+                lines.append(f"  :white_check_mark: Trailing stop placed: {mult:.1f} ATR = ${distance:,.0f}")
             else:
                 pct = trailing.get("fallback_pct", 0.0) * 100.0
-                lines.append(f"  ✅ Trailing stop placed: {pct:.2f}% = ${distance:,.0f}")
+                lines.append(f"  :white_check_mark: Trailing stop placed: {pct:.2f}% = ${distance:,.0f}")
         else:
-            lines.append("  ✅ Trailing stop placed")
+            lines.append("  :white_check_mark: Trailing stop placed")
     else:
         reason = trailing.get("reason", "unknown")
         if reason == "no_position":
-            lines.append("  ℹ️ No position; trailing stop not required")
+            lines.append("  :information_source: No position; trailing stop not required")
         else:
-            lines.append(f"  ⚠️ Trailing stop not placed ({reason})")
+            lines.append(f"  :warning: Trailing stop not placed ({reason})")
 
     lines.append("Step 4: Clearing Grid state from DB...")
     if result.get("grid_cleared"):
-        lines.append("  ✅ Grid state cleared")
+        lines.append("  :white_check_mark: Grid state cleared")
     else:
-        lines.append("  ⚠️ Grid state not cleared")
+        lines.append("  :warning: Grid state not cleared")
 
-    lines.append("✅ Transition complete: Ready for Trend strategy")
+    lines.append(":white_check_mark: Transition complete: Ready for Trend strategy")
     return "\n".join(lines)
 
+def _format_trend_to_grid_transition(
+    result: dict[str, Any], adx_value: float | None = None
+) -> str:
+    symbol_name = str(result.get("symbol", "")).replace("/", "")
+    old_value = str(result.get("old", "TREND"))
+    new_value = str(result.get("new", "RANGE"))
+    adx_str = f"{adx_value:.1f}" if adx_value is not None else "N/A"
 
-def _format_trend_to_grid_transition(result: dict[str, Any]) -> str:
-    lines = ["🔧 Transition Protocol: TREND→GRID", "Step 1: Checking open Trend positions..."]
+    lines = [
+        f":warning: Regime Change: {symbol_name}",
+        f"{old_value} -> {new_value} (ADX: {adx_str})",
+        "",
+        ":wrench: Transition Protocol: TREND->GRID",
+        "Step 1: Checking open Trend positions...",
+    ]
     position = result.get("position") or {}
     size = position.get("size") if isinstance(position, dict) else None
     entry_price = None
@@ -225,9 +233,11 @@ def _format_trend_to_grid_transition(result: dict[str, Any]) -> str:
     if size is not None and abs(size) > 0:
         direction = "LONG" if size > 0 else "SHORT"
         price_str = f"${entry_price:,.0f}" if entry_price else "N/A"
-        lines.append(f"  ⚠️ Found position: {direction} {abs(size):.6f} BTC @ {price_str}")
+        lines.append(
+            f"  :warning: Found position: {direction} {abs(size):.6f} BTC @ {price_str}"
+        )
     else:
-        lines.append("  ✅ No open position")
+        lines.append("  :white_check_mark: No open position")
 
     lines.append("Step 2: Tightening stop loss...")
     old_stop = result.get("old_stop")
@@ -246,20 +256,20 @@ def _format_trend_to_grid_transition(result: dict[str, Any]) -> str:
         else:
             lines.append("  New SL: N/A")
     if tightened.get("placed"):
-        lines.append("  ✅ Stop loss tightened")
+        lines.append("  :white_check_mark: Stop loss tightened")
     else:
-        lines.append("  ⚠️ Stop loss not updated")
+        lines.append("  :warning: Stop loss not updated")
 
     lines.append("Step 3: Blocking Grid strategy...")
     if result.get("grid_blocked"):
-        lines.append("  ✅ grid_blocked = True in DB")
+        lines.append("  :white_check_mark: grid_blocked = True in DB")
     else:
-        lines.append("  ⚠️ grid_blocked = False in DB")
+        lines.append("  :warning: grid_blocked = False in DB")
 
     if size is not None and abs(size) > 0:
-        lines.append("⚠️ Grid strategy paused until Trend position closes")
+        lines.append("")
+        lines.append(":warning: Grid strategy paused until Trend position closes")
     return "\n".join(lines)
-
 
 async def _sync_trades(
     symbol: str,
@@ -454,14 +464,14 @@ async def main() -> None:
                 regime = detectors[symbol].detect(df)
                 old_regime = await db.get_state(f"regime:last:{symbol}")
                 new_value = regime.value
+                adx_value = None
+                if "adx_14" in df.columns and not df.empty:
+                    try:
+                        adx_value = float(df["adx_14"].iloc[-1])
+                    except (TypeError, ValueError):
+                        adx_value = None
                 prev_regime = last_regime_reported[symbol]
                 if prev_regime is not None and prev_regime != regime:
-                    adx_value = None
-                    if "adx_14" in df.columns and not df.empty:
-                        try:
-                            adx_value = float(df["adx_14"].iloc[-1])
-                        except (TypeError, ValueError):
-                            adx_value = None
                     change_message = _format_regime_change_message(
                         symbol, prev_regime.value, new_value, adx_value
                     )
@@ -497,7 +507,7 @@ async def main() -> None:
                     )
                 if transition_result.get("transition") == "TREND->GRID":
                     transition_message = _format_trend_to_grid_transition(
-                        transition_result
+                        transition_result, adx_value
                     )
                     logger.info(transition_message)
                     await alert_manager.send(
@@ -534,9 +544,9 @@ async def main() -> None:
                 if risk_manager.kill_switch_active and signals:
                     if not size_blocked_reported[symbol]:
                         message = (
-                            "ℹ️ Size Calculation Request\n"
+                            ":information_source: Size Calculation Request\n"
                             "Kill Switch: ACTIVE\n"
-                            "✅ Returned quantity: 0.0 (trading blocked)"
+                            ":white_check_mark: Returned quantity: 0.0 (trading blocked)"
                         )
                         logger.info(message)
                         await alert_manager.send(
