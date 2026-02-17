@@ -144,6 +144,36 @@ def _format_regime_summary(
     )
 
 
+def _format_regime_debug(
+    symbol: str, df, regime: MarketRegime, detector: RegimeDetector
+) -> str:
+    if df.empty:
+        return f"Regime Debug: {symbol} (no data)"
+
+    last = df.iloc[-1]
+    adx = float(last.get("adx_14", 0.0))
+    ema_50 = float(last.get("ema_50", 0.0))
+    ema_200 = float(last.get("ema_200", 0.0))
+    bb_upper = float(last.get("bb_upper", 0.0))
+    bb_lower = float(last.get("bb_lower", 0.0))
+    bb_middle = float(last.get("bb_middle", 0.0))
+
+    sep_pct = (abs(ema_50 - ema_200) / ema_200 * 100.0) if ema_200 else 0.0
+    bb_width_pct = (
+        ((bb_upper - bb_lower) / bb_middle * 100.0) if bb_middle else 0.0
+    )
+
+    trend_ok = adx > 25.0 and sep_pct >= (detector.ema_sep_pct * 100.0)
+    range_ok = adx < 20.0 and bb_width_pct <= (detector.bb_width_pct * 100.0)
+
+    symbol_name = symbol.replace("/", "")
+    return (
+        f"Regime Debug: {symbol_name} | "
+        f"ADX={adx:.2f} | EMA50={ema_50:,.2f} | EMA200={ema_200:,.2f} | "
+        f"SEP%={sep_pct:.2f} (min {detector.ema_sep_pct * 100.0:.2f}) | "
+        f"BB%={bb_width_pct:.2f} (max {detector.bb_width_pct * 100.0:.2f}) | "
+        f"TREND_OK={trend_ok} RANGE_OK={range_ok} | REGIME={regime.value}"
+    )
 def _normalize_regime_value(value: MarketRegime | str | None) -> str:
     if value is None:
         return MarketRegime.UNKNOWN.value
@@ -470,6 +500,15 @@ async def main() -> None:
                         adx_value = float(df["adx_14"].iloc[-1])
                     except (TypeError, ValueError):
                         adx_value = None
+                debug_summary = _format_regime_debug(
+                    symbol, df, regime, detectors[symbol]
+                )
+                logger.info(debug_summary)
+                await alert_manager.send(
+                    debug_summary,
+                    level="DEBUG",
+                    context={"symbol": symbol, "regime": new_value},
+                )
                 prev_regime = last_regime_reported[symbol]
                 if prev_regime is not None and prev_regime != regime:
                     change_message = _format_regime_change_message(
