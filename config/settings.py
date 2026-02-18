@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from functools import lru_cache
+import os
 from typing import List
 
 from pydantic import (
@@ -14,6 +15,7 @@ from pydantic import (
     model_validator,
 )
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from dotenv import load_dotenv
 
 
 class Settings(BaseSettings):
@@ -207,4 +209,6 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
+    override = os.getenv("DOTENV_OVERRIDE", "1").lower() in {"1", "true", "yes", "y"}
+    load_dotenv(".env", override=override)
     return Settings()

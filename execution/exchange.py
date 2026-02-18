@@ -20,14 +20,15 @@ class ExchangeWrapper:
                 "apiKey": api_key,
                 "secret": api_secret,
                 "enableRateLimit": True,
-                "options": {"defaultType": "future"},
+                "options": {"defaultType": "future", "adjustForTimeDifference": True},
             }
         )
         env = (trading_env or ("TESTNET" if testnet else "LIVE")).upper()
         if env in {"TESTNET", "DEMO"}:
-            demo_urls = self.exchange.urls.get("demo")
-            if demo_urls:
-                self.exchange.urls["api"] = demo_urls
+            url_key = "test" if env == "TESTNET" else "demo"
+            sandbox_urls = self.exchange.urls.get(url_key)
+            if sandbox_urls:
+                self.exchange.urls["api"] = sandbox_urls
             else:
                 self.exchange.set_sandbox_mode(True)
             self.exchange.options["fetchCurrencies"] = False
@@ -37,6 +38,9 @@ class ExchangeWrapper:
 
     async def initialize(self) -> None:
         await self._call(self.exchange.load_markets)
+        load_time = getattr(self.exchange, "load_time_difference", None)
+        if load_time:
+            await self._call(load_time)
 
     def _normalize_symbol(self, symbol: str) -> str:
         if "/" in symbol:
